@@ -172,3 +172,5 @@ cython_debug/
 .ionide
 
 # Support for Project snippet scope
+docker-compose.yaml
+pgoweb.yaml

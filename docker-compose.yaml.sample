@@ -1,0 +1,13 @@
+version: "3.2"
+services:
+  pgoweb:
+    container_name: pgoweb
+    image: mawinkler/pgoweb
+    environment:
+      - AWS_ACCESS_KEY_ID=<AWS_ACCESS_KEY_ID>
+      - AWS_SECRET_ACCESS_KEY=<AWS_SECRET_ACCESS_KEY>
+      - V1_API_KEY=<V1_API_KEY>
+      - BUCKET_NAME=<BUCKET_NAME>
+    ports:
+      - 5000:5000
+    restart: unless-stopped
