@@ -10,9 +10,12 @@ function App() {
   const [selectedFile, setSelectedFile] = useState(null);
   const [responseData, setResponseData] = useState(null);
 
+  // Empty string when running in container
+  const BASEURL = "http://192.168.1.122:5000"
+  
   useEffect(() => {
     axios
-      .get("http://192.168.1.122:5000/api/data")
+      .get(BASEURL + "/api/data")
       .then((response) => setData(response.data))
       .catch((error) => console.error(error));
   }, []);
@@ -31,7 +34,7 @@ function App() {
       console.log("File Size:", selectedFile.size, "bytes");
       try {
         const response = await axios.post(
-          "http://192.168.1.122:5000/api/uploadfile",
+          BASEURL + "/api/uploadfile",
           formData
         );
         // Parse the response

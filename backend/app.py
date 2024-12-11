@@ -1,5 +1,5 @@
 import boto3
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, send_from_directory
 from flask_cors import CORS
 from werkzeug.utils import secure_filename
 
@@ -12,8 +12,13 @@ BUCKET_NAME = "pgo-id-scanning-bucket-1o3ky4jp"
 
 
 @app.route("/")
-def hello():
-    return "Hello, World!"
+def serve():
+    return send_from_directory(app.static_folder, "index.html")
+
+
+@app.route("/<path:path>")
+def static_proxy(path):
+    return send_from_directory(app.static_folder, path)
 
 
 @app.route("/api/data", methods=["GET"])

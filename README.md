@@ -4,7 +4,7 @@
 
 ```sh
 venv
-pip install -r requirements.txt 
+pip install -r backend/requirements.txt 
 python3 backend/app.py 
 ```
 
@@ -47,60 +47,6 @@ npm install @mui/material @emotion/react @emotion/styled
 
 `frontend/src/App.jsx`
 
-```jsx
-import { useEffect, useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
-import axios from 'axios';
-import { Button } from '@mui/material';
-
-function App() {
-  const [count, setCount] = useState(0)
-  const [data, setData] = useState(null)
-
-  useEffect(() => {
-    axios.get('http://127.0.0.1:5000/api/data')
-      .then(response => setData(response.data))
-      .catch(error => console.error(error));
-  }, []);
-
-  return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.jsx</code> and save to test HMR
-        </p>
-      </div>
-      <div>
-        <h1>React and Flask App</h1>
-        <p>{data ? data.message : 'Loading...'}</p>
-      </div>
-      <div>
-        <Button variant="contained" color="primary">Click Me</Button>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
-}
-
-export default App
-```
-
 ## Initial Test
 
 Shell 1:
@@ -113,4 +59,34 @@ Shell 2:
 
 ```sh
 npm run dev -- --host
+```
+
+## Docker
+
+In `frontend/App.jsx` change
+
+```js
+  const BASEURL = "http://192.168.1.122:5000"
+```
+
+to
+
+```js
+  const BASEURL = ""
+```
+
+Build
+
+```sh
+docker build -t mawinkler/pgoweb . --progress=plain --push --no-cache
+```
+
+Run
+
+```sh
+docker run \
+  -p 5000:5000 \
+  -e AWS_ACCESS_KEY_ID=<AWS_ACCESS_KEY_ID> \
+  -e AWS_SECRET_ACCESS_KEY=<AWS_SECRET_ACCESS_KEY> \
+  mawinkler/pgoweb
 ```
