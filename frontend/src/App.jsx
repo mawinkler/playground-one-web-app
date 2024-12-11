@@ -1,19 +1,58 @@
-import { useEffect, useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
-import axios from 'axios';
-import { Button } from '@mui/material';
+import { Button, Typography } from "@mui/material";
+import axios from "axios";
+import { useEffect, useState } from "react";
+import "./App.css";
+import reactLogo from "./assets/react.svg";
+import viteLogo from "/vite.svg";
 
 function App() {
-  const [count, setCount] = useState(0)
-  const [data, setData] = useState(null)
+  const [data, setData] = useState(null);
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [responseData, setResponseData] = useState(null);
 
   useEffect(() => {
-    axios.get('http://127.0.0.1:5000/api/data')
-      .then(response => setData(response.data))
-      .catch(error => console.error(error));
+    axios
+      .get("http://192.168.1.122:5000/api/data")
+      .then((response) => setData(response.data))
+      .catch((error) => console.error(error));
   }, []);
+
+  const onFileChange = (event) => {
+    setSelectedFile(event.target.files[0]);
+  };
+
+  const onFileUpload = async () => {
+    if (selectedFile) {
+      const formData = new FormData();
+      formData.append("file", selectedFile, selectedFile.name);
+
+      console.log("File Name:", selectedFile.name);
+      console.log("File Type:", selectedFile.type);
+      console.log("File Size:", selectedFile.size, "bytes");
+      try {
+        const response = await axios.post(
+          "http://192.168.1.122:5000/api/uploadfile",
+          formData
+        );
+        // Parse the response
+        setResponseData(response.data);
+        console.log("Response Data:", response.data);
+
+        if (response.data.message) {
+          console.log("Success Message:", response.data.message);
+        } else {
+          console.log("Error Message:", response.data.error);
+        }
+      } catch (error) {
+        console.error(
+          "Error:",
+          error.response ? error.response.error : error.message
+        );
+      }
+    } else {
+      console.log("No file selected");
+    }
+  };
 
   return (
     <>
@@ -25,27 +64,36 @@ function App() {
           <img src={reactLogo} className="logo react" alt="React logo" />
         </a>
       </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.jsx</code> and save to test HMR
-        </p>
+      <div>
+        <h1>S3 File Uploader</h1>
+        <p>{data ? data.message : "Loading..."}</p>
       </div>
       <div>
-        <h1>React and Flask App</h1>
-        <p>{data ? data.message : 'Loading...'}</p>
+        <Button variant="contained" component="label">
+          Choose File
+          <input type="file" hidden onChange={onFileChange} />
+        </Button>
+        {selectedFile && (
+          <Typography variant="body1" style={{ marginTop: 10 }}>
+            Selected File: {selectedFile.name}
+            <br></br>
+            File Size: {selectedFile.size} bytes
+          </Typography>
+        )}
+        <br></br>
+        <Button
+          variant="contained"
+          color="primary"
+          onClick={onFileUpload}
+          style={{ marginTop: 20 }}
+        >
+          Upload
+        </Button>
+        {/* {responseData && <pre>{JSON.stringify(responseData.message, null, 2)}</pre>} */}
+        {responseData && <pre>{responseData.message}</pre>}
       </div>
-      <div>
-        <Button variant="contained" color="primary">Click Me</Button>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
     </>
-  )
+  );
 }
 
-export default App
+export default App;
