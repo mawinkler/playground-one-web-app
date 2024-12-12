@@ -14,8 +14,8 @@ function App() {
   const [isLoading, setIsLoading] = useState(true);
 
   // Empty string when running in container
-  const BASEURL = "http://192.168.1.122:5000";
-  // const BASEURL = ""
+  // const BASEURL = "http://192.168.1.122:5000";
+  const BASEURL = ""
 
   const onFileChange = (event) => {
     console.log("Selected File:", event.target.files[0]);

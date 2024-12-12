@@ -5,9 +5,7 @@ WORKDIR /app
 COPY frontend/package.json frontend/package-lock.json ./
 RUN npm install
 COPY frontend/ ./
-RUN npm run build && \
-    pwd && \
-    ls -l
+RUN npm run build 
 
 # Step 2: Build Flask backend
 FROM python:3.12
