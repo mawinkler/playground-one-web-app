@@ -37,10 +37,10 @@ Install dependencies
 npm install axios react-router-dom
 ```
 
-Add a design framework like Material-UI, Tailwind CSS, or Bootstrap for styling:
+Add a design framework like Material-UI, Tailwind CSS, or Bootstrap for styling. Add React Select
 
 ```sh
-npm install @mui/material @emotion/react @emotion/styled
+npm install @mui/material @emotion/react @emotion/styled react-select
 ```
 
 ## Initial App Setup
@@ -90,3 +90,7 @@ docker run \
   -e AWS_SECRET_ACCESS_KEY=<AWS_SECRET_ACCESS_KEY> \
   mawinkler/pgoweb
 ```
+
+## Mad Scientist
+
+Link: <https://en.wikipedia.org/wiki/File:Mad_scientist.svg#/media/File:Mad_scientist_transparent_background.svg>

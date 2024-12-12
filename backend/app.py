@@ -29,8 +29,8 @@ CORS(app)
 s3 = boto3.client("s3")
 
 BUCKET_NAME = os.getenv("BUCKET_NAME")
-if BUCKET_NAME == "" or BUCKET_NAME is None:
-    BUCKET_NAME = "pgo-id-scanning-bucket-1o3ky4jp"
+if BUCKET_NAME == "":
+    BUCKET_NAME = None
 
 V1_REGION = os.getenv("V1_REGION")
 if V1_REGION == "" or V1_REGION is None:
@@ -76,13 +76,18 @@ def get_data():
 @app.route("/api/uploadfile", methods=["POST"])
 def upload_s3():
     img = request.files["file"]
+    bucket = request.form.get("bucket")
+    if bucket == "null":
+        bucket = BUCKET_NAME
+    if bucket is None:
+        return jsonify({"error": "Choose an upload Bucket first!"})
     if img:
         filename = secure_filename(img.filename)
         img.save(f"./{filename}")
         try:
-            s3.upload_file(Bucket=BUCKET_NAME, Filename=filename, Key=filename)
+            s3.upload_file(Bucket=bucket, Filename=filename, Key=filename)
         except Exception as ex:
-            return jsonify({"message": "Error", "error": str(ex.text)})
+            return jsonify({"error": str(ex)})
 
     return jsonify({"message": "OK"})
 
@@ -97,7 +102,7 @@ def scan_sandbox():
             sandbox_analysis_results = sandbox_wait_for_result(task_id)
             tags = sandbox_get_analysis_results(sandbox_analysis_results)
         except Exception as ex:
-            return jsonify({"message": "Error", "error": str(ex.text)})
+            return jsonify({"error": str(ex)})
 
     return jsonify({"message": "OK", "tags": tags})
 
@@ -112,7 +117,7 @@ def scan_fs():
             tags = fss_submit(key=filename, buffer=img.read())
             _LOGGER.info(tags)
         except Exception as ex:
-            return jsonify({"message": "Error", "error": str(ex)})
+            return jsonify({"error": str(ex)})
 
     return jsonify({"message": "OK", "tags": tags})
 
@@ -125,6 +130,26 @@ def scan_cs():
         img.save(f"./{filename}")
 
     return jsonify({"message": "OK"})
+
+
+@app.route("/api/listbuckets", methods=["GET"])
+def list_buckets():
+    buckets = []
+
+    try:
+        response = s3.list_buckets(
+            MaxBuckets=100,
+            # ContinuationToken='string',
+            # Prefix='string',
+            # BucketRegion='string'
+        )
+
+        for bucket in response.get("Buckets"):
+            buckets.append({"value": bucket.get("Name"), "label": bucket.get("Name")})
+    except Exception as ex:
+        return jsonify({"error": str(ex)})
+
+    return jsonify({"message": "OK", "buckets": buckets})
 
 
 # #############################################################################
@@ -287,6 +312,7 @@ def sandbox_wait_for_result(task_id):
             "Sandbox Analysis failed",
             extra={"function": inspect.currentframe().f_code.co_name},
         )
+        raise Exception("Sandbox Analysis failed")
 
     return sandbox_analysis_results
 
