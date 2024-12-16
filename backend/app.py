@@ -298,69 +298,85 @@ def sandbox_wait_for_result(task_id):
 
         task_result = response.json()
         if task_result.get("status") == "succeeded":
-            sandbox_analysis_results = task_result.get("resourceLocation")
+            sandbox_analysis_results = task_result
         if task_result.get("status") == "failed":
+            sandbox_analysis_results = task_result
             sandbox_analysis_failed = True
         _LOGGER.info(
-            "Sandbox Analysis running",
+            f"Sandbox Analysis {task_result.get("status")}",
             extra={"function": inspect.currentframe().f_code.co_name},
         )
         sleep(10)
 
     if sandbox_analysis_failed:
-        _LOGGER.error(
+        _LOGGER.warning(
             "Sandbox Analysis failed",
             extra={"function": inspect.currentframe().f_code.co_name},
         )
-        raise Exception("Sandbox Analysis failed")
 
     return sandbox_analysis_results
 
 
 def sandbox_get_analysis_results(sandbox_analysis_results):
-    try:
-        response = requests.get(
-            sandbox_analysis_results, params=QUERY_PARAMS, headers=HEADERS
-        )
-        response.raise_for_status()
-    except requests.exceptions.HTTPError as errh:
-        _LOGGER.error(
-            errh.args[0], extra={"function": inspect.currentframe().f_code.co_name}
-        )
-        raise
-    except requests.exceptions.ReadTimeout:
-        _LOGGER.error(
-            "Time out", extra={"function": inspect.currentframe().f_code.co_name}
-        )
-        raise
-    except requests.exceptions.ConnectionError:
-        _LOGGER.error(
-            "Connection error",
-            extra={"function": inspect.currentframe().f_code.co_name},
-        )
-        raise
-    except requests.exceptions.RequestException:
-        _LOGGER.error(
-            "Exception request",
-            extra={"function": inspect.currentframe().f_code.co_name},
-        )
-        raise
+    if sandbox_analysis_results.get("resourceLocation") is not None:
+        try:
+            response = requests.get(
+                sandbox_analysis_results.get("resourceLocation"),
+                params=QUERY_PARAMS,
+                headers=HEADERS,
+            )
+            response.raise_for_status()
+        except requests.exceptions.HTTPError as errh:
+            _LOGGER.error(
+                errh.args[0], extra={"function": inspect.currentframe().f_code.co_name}
+            )
+            raise
+        except requests.exceptions.ReadTimeout:
+            _LOGGER.error(
+                "Time out", extra={"function": inspect.currentframe().f_code.co_name}
+            )
+            raise
+        except requests.exceptions.ConnectionError:
+            _LOGGER.error(
+                "Connection error",
+                extra={"function": inspect.currentframe().f_code.co_name},
+            )
+            raise
+        except requests.exceptions.RequestException:
+            _LOGGER.error(
+                "Exception request",
+                extra={"function": inspect.currentframe().f_code.co_name},
+            )
+            raise
 
-    analysis_result = response.json()
+        analysis_result = response.json()
 
-    detection_names = " ".join(analysis_result.get("detectionNames", ["n/a"]))
-    threat_types = " ".join(analysis_result.get("threatTypes", ["n/a"]))
-    scan_date = datetime.strftime(
-        datetime.fromisoformat(analysis_result.get("analysisCompletionDateTime")),
-        "%m/%d/%Y %H:%M:%S",
-    )
-    tags = [
-        f"{SB_TAG_PREFIX}risk-level={analysis_result.get('riskLevel', 'n/a')}",
-        f"{SB_TAG_PREFIX}detection-names={detection_names}",
-        f"{SB_TAG_PREFIX}threat-type={threat_types}",
-        f"{SB_TAG_PREFIX}analysis-completed={scan_date}",
-    ]
-
+        detection_names = " ".join(analysis_result.get("detectionNames", ["n/a"]))
+        if detection_names == "":
+            detection_names = "n/a"
+        threat_types = " ".join(analysis_result.get("threatTypes", ["n/a"]))
+        if threat_types == "":
+            threat_types = "n/a"
+        scan_date = datetime.strftime(
+            datetime.fromisoformat(analysis_result.get("analysisCompletionDateTime")),
+            "%m/%d/%Y %H:%M:%S",
+        )
+        tags = [
+            f"{SB_TAG_PREFIX}risk-level={analysis_result.get('riskLevel', 'n/a')}",
+            f"{SB_TAG_PREFIX}detection-names={detection_names}",
+            f"{SB_TAG_PREFIX}threat-type={threat_types}",
+            f"{SB_TAG_PREFIX}analysis-completed={scan_date}",
+        ]
+    else:
+        last_action_date = datetime.strftime(
+            datetime.fromisoformat(sandbox_analysis_results.get("lastActionDateTime")),
+            "%m/%d/%Y %H:%M:%S",
+        )
+        tags = [
+            f"{SB_TAG_PREFIX}code={sandbox_analysis_results.get('error').get('code', 'n/a')}",
+            f"{SB_TAG_PREFIX}message={sandbox_analysis_results.get('error').get('message', 'n/a')}",
+            f"{SB_TAG_PREFIX}analysis-completed={last_action_date}",
+        ]
     _LOGGER.info(tags)
 
     return tags

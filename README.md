@@ -52,12 +52,14 @@ npm install @mui/material @emotion/react @emotion/styled react-select
 Shell 1:
 
 ```sh
+cd .
 python3 backend/app.py
 ```
 
 Shell 2:
 
 ```sh
+cd frontend
 npm run dev -- --host
 ```
 
