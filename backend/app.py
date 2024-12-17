@@ -4,7 +4,6 @@ import logging
 import os
 import sys
 from datetime import datetime
-from time import sleep
 
 import amaas.grpc
 import boto3
@@ -83,6 +82,10 @@ def upload_s3():
         return jsonify({"error": "Choose an upload Bucket first!"})
     if img:
         filename = secure_filename(img.filename)
+        _LOGGER.info(
+            f"Sending {filename} to S3 Bucket",
+            extra={"function": inspect.currentframe().f_code.co_name},
+        )
         img.save(f"./{filename}")
         try:
             s3.upload_file(Bucket=bucket, Filename=filename, Key=filename)
@@ -97,14 +100,77 @@ def scan_sandbox():
     img = request.files["file"]
     if img:
         filename = secure_filename(img.filename)
+        _LOGGER.info(
+            f"Sending {filename} to Sandbox",
+            extra={"function": inspect.currentframe().f_code.co_name},
+        )
         try:
             task_id = sandbox_submit(key=filename, buffer=img.read())
-            sandbox_analysis_results = sandbox_wait_for_result(task_id)
-            tags = sandbox_get_analysis_results(sandbox_analysis_results)
         except Exception as ex:
+            _LOGGER.error(str(ex))
             return jsonify({"error": str(ex)})
 
-    return jsonify({"message": "OK", "tags": tags})
+    _LOGGER.info(task_id, extra={"function": inspect.currentframe().f_code.co_name})
+    return jsonify({"message": "OK", "task_id": task_id})
+
+
+@app.route("/api/scansandbox/<id>", methods=["GET"])
+def scan_sandbox_status(id):
+    _LOGGER.info(
+        f"Query Task ID {id} from Sandbox",
+        extra={"function": inspect.currentframe().f_code.co_name},
+    )
+    try:
+        sandbox_analysis_results = sandbox_task_status(id)
+    except Exception as ex:
+        _LOGGER.error(str(ex))
+        return jsonify({"error": str(ex)})
+
+    _LOGGER.info(
+        sandbox_analysis_results,
+        extra={"function": inspect.currentframe().f_code.co_name},
+    )
+    return jsonify(
+        {
+            "message": f"Scan {sandbox_analysis_results.get('status')}",
+            "status": sandbox_analysis_results.get("status"),
+            "response": sandbox_analysis_results,
+            "resourceLocation": sandbox_analysis_results.get("resourceLocation"),
+        }
+    )
+
+
+@app.route("/api/resultsandbox/", methods=["POST"])
+def scan_sandbox_result():
+    if request.form.get("resourceLocation") != "undefined":
+        resourceLocation = request.form.get("resourceLocation")
+    else:
+        resourceLocation = None
+    sandbox_analysis_results = {
+        "resourceLocation": resourceLocation,
+        "lastActionDateTime": request.form.get("lastActionDateTime"),
+        "error": {
+            "code": request.form.get("errorCode"),
+            "message": request.form.get("errorMessage"),
+        },
+    }
+    _LOGGER.info(
+        f"Query Result {request.form} from Sandbox",
+        extra={"function": inspect.currentframe().f_code.co_name},
+    )
+    try:
+        sandbox_analysis_results = sandbox_get_analysis_results(
+            sandbox_analysis_results
+        )
+    except Exception as ex:
+        _LOGGER.error(str(ex))
+        return jsonify({"error": str(ex)})
+
+    _LOGGER.info(
+        sandbox_analysis_results,
+        extra={"function": inspect.currentframe().f_code.co_name},
+    )
+    return jsonify({"message": "OK", "tags": sandbox_analysis_results})
 
 
 @app.route("/api/scanfs", methods=["POST"])
@@ -112,13 +178,19 @@ def scan_fs():
     img = request.files["file"]
     if img:
         filename = secure_filename(img.filename)
-        _LOGGER.info(filename)
+        _LOGGER.info(
+            f"Sending {filename} to File Security",
+            extra={"function": inspect.currentframe().f_code.co_name},
+        )
         try:
             tags = fss_submit(key=filename, buffer=img.read())
-            _LOGGER.info(tags)
+            _LOGGER.info(
+                tags, extra={"function": inspect.currentframe().f_code.co_name}
+            )
         except Exception as ex:
             return jsonify({"error": str(ex)})
 
+    _LOGGER.info(tags, extra={"function": inspect.currentframe().f_code.co_name})
     return jsonify({"message": "OK", "tags": tags})
 
 
@@ -127,6 +199,10 @@ def scan_cs():
     img = request.files["file"]
     if img:
         filename = secure_filename(img.filename)
+        _LOGGER.info(
+            f"Sending {filename} to Container",
+            extra={"function": inspect.currentframe().f_code.co_name},
+        )
         img.save(f"./{filename}")
 
     return jsonify({"message": "OK"})
@@ -157,7 +233,6 @@ def list_buckets():
 # #############################################################################
 def fss_submit(key, buffer):
     handle = amaas.grpc.init_by_region(V1_REGION, V1_API_KEY, True)
-    _LOGGER.info("FSS SCAN")
     try:
         scan_resp = amaas.grpc.scan_buffer(
             handle,
@@ -179,20 +254,15 @@ def fss_submit(key, buffer):
     response = json.loads(scan_resp)
 
     scanning_result = response.get("result")
-    _LOGGER.info(scanning_result)
     findings = scanning_result.get("atse").get("malwareCount")
-    _LOGGER.info(findings)
     scan_result = "malicious" if findings else "no issues found"
-    _LOGGER.info(scan_result)
     scan_date = datetime.strftime(
         datetime.fromisoformat(response.get("timestamp").get("end")),
         "%m/%d/%Y %H:%M:%S",
     )
-    _LOGGER.info(scan_date)
     malware_name = (
         scanning_result.get("atse").get("malware")[0].get("name") if findings else "n/a"
     )
-    _LOGGER.info(malware_name)
 
     tags = [
         f"{FSS_TAG_PREFIX}scanned=true",
@@ -203,7 +273,7 @@ def fss_submit(key, buffer):
 
     amaas.grpc.quit(handle)
 
-    _LOGGER.info(tags)
+    _LOGGER.info(tags, extra={"function": inspect.currentframe().f_code.co_name})
 
     return tags
 
@@ -212,7 +282,6 @@ def fss_submit(key, buffer):
 # Sandbox Handling
 # #############################################################################
 def sandbox_submit(key, buffer):
-
     data = {
         #    'documentPassword': 'YOUR_DOCUMENTPASSWORD (base64-encoded characters)',
         #    'archivePassword': 'YOUR_ARCHIVEPASSWORD (base64-encoded characters)',
@@ -227,7 +296,7 @@ def sandbox_submit(key, buffer):
             data=data,
             files=files,
         )
-        response.raise_for_status()
+        # response.raise_for_status()
     except requests.exceptions.HTTPError as errh:
         _LOGGER.error(
             errh.args[0], extra={"function": inspect.currentframe().f_code.co_name}
@@ -261,71 +330,56 @@ def sandbox_submit(key, buffer):
     return task_id
 
 
-def sandbox_wait_for_result(task_id):
-
-    sandbox_analysis_results = None
-    sandbox_analysis_failed = False
-    while sandbox_analysis_results is None and not sandbox_analysis_failed:
-        try:
-            response = requests.get(
-                API_BASE_URL + URL_PATH_TASKS + "/" + task_id,
-                params=QUERY_PARAMS,
-                headers=HEADERS,
-            )
-            response.raise_for_status()
-        except requests.exceptions.HTTPError as errh:
-            _LOGGER.error(
-                errh.args[0], extra={"function": inspect.currentframe().f_code.co_name}
-            )
-            raise
-        except requests.exceptions.ReadTimeout:
-            _LOGGER.error(
-                "Time out", extra={"function": inspect.currentframe().f_code.co_name}
-            )
-            raise
-        except requests.exceptions.ConnectionError:
-            _LOGGER.error(
-                "Connection error",
-                extra={"function": inspect.currentframe().f_code.co_name},
-            )
-            raise
-        except requests.exceptions.RequestException:
-            _LOGGER.error(
-                "Exception request",
-                extra={"function": inspect.currentframe().f_code.co_name},
-            )
-            raise
-
-        task_result = response.json()
-        if task_result.get("status") == "succeeded":
-            sandbox_analysis_results = task_result
-        if task_result.get("status") == "failed":
-            sandbox_analysis_results = task_result
-            sandbox_analysis_failed = True
-        _LOGGER.info(
-            f"Sandbox Analysis {task_result.get("status")}",
+def sandbox_task_status(task_id):
+    try:
+        response = requests.get(
+            API_BASE_URL + URL_PATH_TASKS + "/" + task_id,
+            params=QUERY_PARAMS,
+            headers=HEADERS,
+        )
+        # response.raise_for_status()
+    except requests.exceptions.HTTPError as errh:
+        _LOGGER.error(
+            errh.args[0], extra={"function": inspect.currentframe().f_code.co_name}
+        )
+        raise
+    except requests.exceptions.ReadTimeout:
+        _LOGGER.error(
+            "Time out", extra={"function": inspect.currentframe().f_code.co_name}
+        )
+        raise
+    except requests.exceptions.ConnectionError:
+        _LOGGER.error(
+            "Connection error",
             extra={"function": inspect.currentframe().f_code.co_name},
         )
-        sleep(10)
-
-    if sandbox_analysis_failed:
-        _LOGGER.warning(
-            "Sandbox Analysis failed",
+        raise
+    except requests.exceptions.RequestException:
+        _LOGGER.error(
+            "Exception request",
             extra={"function": inspect.currentframe().f_code.co_name},
         )
+        raise
 
-    return sandbox_analysis_results
+    task_result = response.json()
+    _LOGGER.info(
+        f"Sandbox Analysis {task_result.get("status")}",
+        extra={"function": inspect.currentframe().f_code.co_name},
+    )
+
+    return task_result
 
 
 def sandbox_get_analysis_results(sandbox_analysis_results):
-    if sandbox_analysis_results.get("resourceLocation") is not None:
+    resource = sandbox_analysis_results.get("resourceLocation")
+    if resource is not None:
         try:
             response = requests.get(
                 sandbox_analysis_results.get("resourceLocation"),
                 params=QUERY_PARAMS,
                 headers=HEADERS,
             )
-            response.raise_for_status()
+            # response.raise_for_status()
         except requests.exceptions.HTTPError as errh:
             _LOGGER.error(
                 errh.args[0], extra={"function": inspect.currentframe().f_code.co_name}
@@ -377,7 +431,7 @@ def sandbox_get_analysis_results(sandbox_analysis_results):
             f"{SB_TAG_PREFIX}message={sandbox_analysis_results.get('error').get('message', 'n/a')}",
             f"{SB_TAG_PREFIX}analysis-completed={last_action_date}",
         ]
-    _LOGGER.info(tags)
+    _LOGGER.info(tags, extra={"function": inspect.currentframe().f_code.co_name})
 
     return tags
 

@@ -11,11 +11,12 @@ function App() {
   const [responseData, setResponseData] = useState(null);
   const [selectedBucket, setSelectedBucket] = useState(null);
   const [bucketsData, setBucketsData] = useState(null);
+
   const [isLoading, setIsLoading] = useState(true);
 
   // Empty string when running in container
   // const BASEURL = "http://192.168.1.122:5000";
-  const BASEURL = ""
+  const BASEURL = "";
 
   const onFileChange = (event) => {
     console.log("Selected File:", event.target.files[0]);
@@ -67,9 +68,8 @@ function App() {
   const onFileScanSandbox = async () => {
     if (selectedFile) {
       const formData = new FormData();
-      setResponseData({ message: "Uploading and waiting for scan result..." });
-
       formData.append("file", selectedFile, selectedFile.name);
+      setResponseData({ message: "Uploading and waiting for scan result..." });
 
       try {
         const response = await axios.post(
@@ -77,6 +77,8 @@ function App() {
           formData
         );
         setResponseData(response.data);
+        console.log(response.data);
+        const task_id = response.data.task_id;
 
         if (response.data.message) {
           console.log("Success Message:", response.data.message);
@@ -84,6 +86,58 @@ function App() {
         if (response.data.error) {
           console.log("Error Message:", response.data.error);
         }
+
+        const poll = async () => {
+          try {
+            const scan_status = await axios.get(
+              BASEURL + `/api/scansandbox/${task_id}`
+            );
+            console.log("Current status:", scan_status.data.status);
+            setResponseData(scan_status.data);
+            if (
+              scan_status.data.status === "succeeded" ||
+              scan_status.data.status === "failed"
+            ) {
+              console.log(
+                "Retrieve Scan result:",
+                scan_status.data.resourceLocation
+              );
+              const formData = new FormData();
+
+              formData.append(
+                "lastActionDateTime",
+                scan_status.data.response.lastActionDateTime
+              );
+              if (scan_status.data.response.resourceLocation) {
+                formData.append(
+                  "resourceLocation",
+                  scan_status.data.response.resourceLocation
+                );
+              } else {
+                formData.append(
+                  "errorCode",
+                  scan_status.data.response.error.code
+                );
+                formData.append(
+                  "errorMessage",
+                  scan_status.data.response.error.message
+                );
+              }
+              const tags = await axios.post(
+                BASEURL + `/api/resultsandbox`,
+                formData
+              );
+              setResponseData(tags.data);
+              console.log(tags.data);
+            } else if (scan_status.data.status === "running") {
+              setTimeout(poll, 5000);
+            }
+          } catch (error) {
+            console.error("Error during polling:", error);
+          }
+        };
+
+        poll();
       } catch (error) {
         console.error(
           "Error:",

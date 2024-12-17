@@ -1,6 +1,117 @@
-# playground-one-web-app
+# Playground One Web Application
 
-## Setup the Backend Application
+PGOWeb is likely to become a central component of Playground One. Currently it's functionality is limited to scanning files using various technologies offered by Vision One:
+
+- File Security for S3 Buckets secured by Vision One.
+- Direct sending of files to the Vision One Sandbox.
+- Scanning via the File Security SDK.
+- Dropping files into the container to scan with Container Security Runtime Malware Scan. 
+
+## Prerequisites
+
+- Vision One Cloud Security File Scanner API-Key with the following permissions:
+    - Cloud Security Operations
+        - File Security
+            - Run file scan via SDK
+    - Platform Capabilities
+        - Threat Intelligence
+            - Sandbox Analysis
+                - View, filter, and search
+                - Submit object
+- If using the Sandbox, ensure to have credits assigned.
+- Know your Vision One region.
+
+## Usage
+
+### Docker
+
+```sh
+docker run \
+  -p 5000:5000 \
+  -e AWS_ACCESS_KEY_ID=<AWS_ACCESS_KEY_ID> \
+  -e AWS_SECRET_ACCESS_KEY=<AWS_SECRET_ACCESS_KEY> \
+  -e V1_API_KEY=<V1_API_KEY> \
+  mawinkler/pgoweb
+```
+
+### Docker-Compose
+
+`docker-compose.yaml`:
+
+```yaml
+services:
+  pgoweb:
+    container_name: pgoweb
+    image: mawinkler/pgoweb
+    environment:
+      - AWS_ACCESS_KEY_ID=<AWS_ACCESS_KEY_ID>
+      - AWS_SECRET_ACCESS_KEY=<AWS_SECRET_ACCESS_KEY>
+      - V1_API_KEY=<V1_API_KEY>
+    ports:
+      - 5000:5000
+    restart: unless-stopped
+```
+
+```sh
+docker compose up pgoweb
+```
+
+### Kubernetes with `eks-ec2` and `kind`
+
+If you've enabled PGOWeb in your configuration, it will be automatically deployed when the EKS EC2 Kubernetes cluster is created.
+
+Verify, that you have enabled PGOWeb in your configuration.
+
+```sh
+pgo --config
+```
+
+```sh
+...
+Section: Kubernetes Deployments
+Please set/update your Integrations configuration
+...
+Deploy PGOWeb? [true]:
+...
+```
+
+```sh
+# EKS
+pgo --apply eks-ec2
+
+# Kind
+pgo --apply kind
+```
+
+The following outputs are created:
+
+```sh
+# EKS
+Outputs:
+
+loadbalancer_dns_pgoweb = "k8s-pgoweb-pgowebin-69953cce7e-847792142.eu-central-1.elb.amazonaws.com"
+```
+
+Access it using your browser.
+
+With kind run
+
+```sh
+kubectl -n projectcontour port-forward service/contour-envoy 8080:80 --address='0.0.0.0'
+```
+
+and connect to port `8080`.
+
+## Run from Source
+
+Get the sources:
+
+```sh
+git clone https://github.com/mawinkler/playground-one-web-app
+cd playground-one-web-app
+```
+
+### Setup the Backend Application - Shell Session #1
 
 ```sh
 venv
@@ -8,62 +119,45 @@ pip install -r backend/requirements.txt
 python3 backend/app.py 
 ```
 
-## Update NodeJS
+### Create the Frontent - Shell Session #2
+
+Verify that you have a recent version of NodeJS and NPM:
+
+```sh
+node version
+npm -version
+```
+
+```sh
+Node.js v22.12.0
+10.9.2
+```
+
+Eventually update with
 
 ```sh
 sudo npm install -g n
 sudo n lts
-npm -version
 sudo npm install npm -g
 npm -version
 npm cache clean --force
 ```
 
-## Create Frontend
+In `frontend/App.jsx` update the variable `BASEURL` with the IP of your host (here: `192.168.1.122`).
 
-```sh
-npm create vite@latest frontend -- --template react
-cd frontend
-npm install
-npm run dev -- --host
+```js
+  const BASEURL = "http://192.168.1.122:5000"
 ```
 
-Install dependencies
-
-- axios: For API requests.
-- react-router-dom: For routing (if needed).
-
-```sh
-npm install axios react-router-dom
-```
-
-Add a design framework like Material-UI, Tailwind CSS, or Bootstrap for styling. Add React Select
-
-```sh
-npm install @mui/material @emotion/react @emotion/styled react-select
-```
-
-## Initial App Setup
-
-`frontend/src/App.jsx`
-
-## Initial Test
-
-Shell 1:
-
-```sh
-cd .
-python3 backend/app.py
-```
-
-Shell 2:
+Now, start the frontend:
 
 ```sh
 cd frontend
+npm install # installing the dependencies
 npm run dev -- --host
 ```
 
-## Docker
+## Build your own Docker Image
 
 In `frontend/App.jsx` change
 
@@ -80,7 +174,7 @@ to
 Build
 
 ```sh
-docker build -t mawinkler/pgoweb . --progress=plain --push --no-cache
+docker build -t pgoweb . --progress=plain --load --no-cache
 ```
 
 Run
@@ -90,9 +184,29 @@ docker run \
   -p 5000:5000 \
   -e AWS_ACCESS_KEY_ID=<AWS_ACCESS_KEY_ID> \
   -e AWS_SECRET_ACCESS_KEY=<AWS_SECRET_ACCESS_KEY> \
-  mawinkler/pgoweb
+  pgoweb
 ```
 
-## Mad Scientist
+## Support
+
+This is an Open Source community project. Project contributors may be able to help, depending on their time and availability. Please be specific about what you're trying to do, your system, and steps to reproduce the problem.
+
+For bug reports or feature requests, please [open an issue](../../issues). You are welcome to [contribute](#contribute).
+
+Official support from Trend Micro is not available. Individual contributors may be Trend Micro employees, but are not official support.
+
+## Contribute
+
+I do accept contributions from the community. To submit changes:
+
+1. Fork this repository.
+1. Create a new feature branch.
+1. Make your changes.
+1. Submit a pull request with an explanation of your changes or additions.
+
+I will review and work with you to release the code.
+
+## Credits: Mad Scientist
 
 Link: <https://en.wikipedia.org/wiki/File:Mad_scientist.svg#/media/File:Mad_scientist_transparent_background.svg>
+
