@@ -153,7 +153,7 @@ function App() {
   const onFileScanFS = async () => {
     if (selectedFile) {
       const formData = new FormData();
-      setResponseData({ message: "Uploading and waiting for scan result..." });
+      setResponseData({ message: "File Security Scan running" });
 
       formData.append("file", selectedFile, selectedFile.name);
 
@@ -167,6 +167,15 @@ function App() {
         }
         if (response.data.error) {
           console.log("Error Message:", response.data.error);
+        }
+
+        if (response.data.tags) {
+          const tags = response.data.tags;
+          console.log("tags:", tags);
+          if (tags.includes("sandbox")) {
+            console.log("sending to sandbox")
+            onFileScanSandbox();  // Trigger Sandbox Scan
+          }
         }
       } catch (error) {
         console.error(

@@ -54,6 +54,19 @@ URL_PATH_ANALYZE = "/v3.0/sandbox/files/analyze"
 URL_PATH_TASKS = "/v3.0/sandbox/tasks"
 HEADERS = {"Authorization": "Bearer " + V1_API_KEY}
 QUERY_PARAMS = {}
+SANDBOX_FORWARD = [
+    7,    # VSDT_EXE
+    28,   # VSDT_TEXT
+    19,   # VSDT_ELF
+    4,    # VSDT_EXCELL
+    2,    # VSDT_PPT
+    30,   # VSDT_PROJECT
+    1,    # VSDT_WINWORD
+    4045, # VSDT_OFFICE12
+    1003, # VSDT_OFFICEXML
+    4049, # VSDT_JAR
+    6015, # VSDT_PDF
+]
 # /SANDBOX
 
 
@@ -132,7 +145,7 @@ def scan_sandbox_status(id):
     )
     return jsonify(
         {
-            "message": f"Scan {sandbox_analysis_results.get('status')}",
+            "message": f"Sandbox Scan {sandbox_analysis_results.get('status')}",
             "status": sandbox_analysis_results.get("status"),
             "response": sandbox_analysis_results,
             "resourceLocation": sandbox_analysis_results.get("resourceLocation"),
@@ -252,10 +265,13 @@ def fss_submit(key, buffer):
         )
 
     response = json.loads(scan_resp)
-
+    _LOGGER.info(response, extra={"function": inspect.currentframe().f_code.co_name})
     scanning_result = response.get("result")
     findings = scanning_result.get("atse").get("malwareCount")
     scan_result = "malicious" if findings else "no issues found"
+    error = scanning_result.get("atse").get("error")
+    if error is not None:
+        scan_result = error
     scan_date = datetime.strftime(
         datetime.fromisoformat(response.get("timestamp").get("end")),
         "%m/%d/%Y %H:%M:%S",
@@ -263,7 +279,7 @@ def fss_submit(key, buffer):
     malware_name = (
         scanning_result.get("atse").get("malware")[0].get("name") if findings else "n/a"
     )
-
+    
     tags = [
         f"{FSS_TAG_PREFIX}scanned=true",
         f"{FSS_TAG_PREFIX}scan-date={scan_date}",
@@ -271,6 +287,10 @@ def fss_submit(key, buffer):
         f"{FSS_TAG_PREFIX}scan-detail-code={malware_name}",
     ]
 
+    file_type = scanning_result.get("atse").get("fileType")
+    if file_type in SANDBOX_FORWARD:
+        tags.append("sandbox")
+        
     amaas.grpc.quit(handle)
 
     _LOGGER.info(tags, extra={"function": inspect.currentframe().f_code.co_name})
