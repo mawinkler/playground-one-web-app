@@ -9,6 +9,7 @@ RUN npm run build
 
 # Step 2: Build Flask backend
 FROM python:3.12
+
 WORKDIR /app
 
 # Install Python dependencies

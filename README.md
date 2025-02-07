@@ -102,6 +102,16 @@ kubectl -n projectcontour port-forward service/contour-envoy 8080:80 --address='
 
 and connect to port `8080`.
 
+### Kubernetes with `kubectl`
+
+## Run with kubectl
+
+```sh
+kubectl create ns pgo
+kubectl -n pgo create secret generic pgo-credentials --from-env-file=<(envsubst <pgo.env)
+kubectl -n pgo apply -f app.yml
+```
+
 ## Run from Source
 
 Get the sources:
@@ -184,6 +194,7 @@ docker run \
   -p 5000:5000 \
   -e AWS_ACCESS_KEY_ID=<AWS_ACCESS_KEY_ID> \
   -e AWS_SECRET_ACCESS_KEY=<AWS_SECRET_ACCESS_KEY> \
+  -e V1_API_KEY=<V1_API_KEY> \
   pgoweb
 ```
 
@@ -209,4 +220,3 @@ I will review and work with you to release the code.
 ## Credits: Mad Scientist
 
 Link: <https://en.wikipedia.org/wiki/File:Mad_scientist.svg#/media/File:Mad_scientist_transparent_background.svg>
-

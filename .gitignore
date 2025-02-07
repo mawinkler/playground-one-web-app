@@ -174,3 +174,4 @@ cython_debug/
 # Support for Project snippet scope
 docker-compose.yaml
 pgoweb.yaml
+archive
