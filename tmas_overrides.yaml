@@ -1,0 +1,9 @@
+secrets:
+  paths:
+    - patterns:
+        - "/usr/local/lib/python3.12/site-packages/urllib3/.*"
+        - "/usr/local/lib/python3.12/site-packages/google/.*"
+        - "/usr/local/lib/python3.12/site-packages/pip/.*"
+        - "/usr/local/lib/python3.12/site-packages/botocore/.*"
+        - "/usr/local/lib/python3.12/site-packages/boto3/.*"
+      reason: Site-packages

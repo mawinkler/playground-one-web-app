@@ -8,7 +8,7 @@ COPY frontend/ ./
 RUN npm run build 
 
 # Step 2: Build Flask backend
-FROM python:3.12
+FROM python:3.12-alpine
 
 WORKDIR /app
 
