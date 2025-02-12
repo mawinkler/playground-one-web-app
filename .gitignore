@@ -175,3 +175,4 @@ cython_debug/
 docker-compose.yaml
 pgoweb.yaml
 archive
+create_secret.sh
