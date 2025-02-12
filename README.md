@@ -1,5 +1,22 @@
 # Playground One Web Application
 
+- [Playground One Web Application](#playground-one-web-application)
+  - [Prerequisites](#prerequisites)
+  - [Usage](#usage)
+    - [Docker](#docker)
+    - [Docker-Compose](#docker-compose)
+    - [Kubernetes with `eks-ec2` and `kind`](#kubernetes-with-eks-ec2-and-kind)
+    - [Kubernetes with `kubectl`](#kubernetes-with-kubectl)
+    - [With ArgoCD](#with-argocd)
+    - [Run from Source](#run-from-source)
+      - [Setup the Backend Application - Shell Session #1](#setup-the-backend-application---shell-session-1)
+      - [Create the Frontent - Shell Session #2](#create-the-frontent---shell-session-2)
+    - [Build your own Docker Image](#build-your-own-docker-image)
+  - [Support](#support)
+  - [Contribute](#contribute)
+  - [Credits: Mad Scientist](#credits-mad-scientist)
+
+
 PGOWeb is likely to become a central component of Playground One. Currently it's functionality is limited to scanning files using various technologies offered by Vision One:
 
 - File Security for S3 Buckets secured by Vision One.
@@ -90,29 +107,62 @@ The following outputs are created:
 Outputs:
 
 loadbalancer_dns_pgoweb = "k8s-pgoweb-pgowebin-69953cce7e-847792142.eu-central-1.elb.amazonaws.com"
-```
+# Browser link: http://k8s-pgoweb-pgowebin-69953cce7e-847792142.eu-central-1.elb.amazonaws.com
 
-Access it using your browser.
+# Kind
+Outputs:
 
-With kind run
+loadbalancer_port_forward = "kubectl -n projectcontour port-forward service/contour-envoy 8080:80 --address='0.0.0.0'"
 
-```sh
+# Run
 kubectl -n projectcontour port-forward service/contour-envoy 8080:80 --address='0.0.0.0'
+# Browser link: http://<IP OF KIND SERVER>:8080>
 ```
-
-and connect to port `8080`.
 
 ### Kubernetes with `kubectl`
 
-## Run with kubectl
-
 ```sh
-kubectl create ns pgo
-kubectl -n pgo create secret generic pgo-credentials --from-env-file=<(envsubst <pgo.env)
-kubectl -n pgo apply -f app.yml
+export AWS_ACCESS_KEY_ID=<AWS_ACCESS_KEY_ID>
+export AWS_SECRET_ACCESS_KEY=<$AWS_SECRET_ACCESS_KEY>
+export V1_API_KEY=<V1_API_KEY>
+kubectl create ns pgoweb
+kubectl -n pgoweb create secret generic pgo-credentials --from-env-file=<(envsubst <pgo.env)
+kubectl -n pgoweb apply -f app.yml
+
+kubectl -n pgoweb port-forward service/pgoweb 8080:80 --address='0.0.0.0'
+# Browser link: http://<IP OF KIND SERVER>:8080>
 ```
 
-## Run from Source
+### With ArgoCD
+
+`app-pgoweb.yaml`:
+
+```yaml
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: pgoweb
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: 'https://github.com/mawinkler/playground-one-web-app'
+    path: .
+    targetRevision: main
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: pgoweb
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+```
+
+```sh
+kubectl apply -f app-pgoweb.yaml
+```
+
+### Run from Source
 
 Get the sources:
 
@@ -121,7 +171,7 @@ git clone https://github.com/mawinkler/playground-one-web-app
 cd playground-one-web-app
 ```
 
-### Setup the Backend Application - Shell Session #1
+#### Setup the Backend Application - Shell Session #1
 
 ```sh
 venv
@@ -129,7 +179,7 @@ pip install -r backend/requirements.txt
 python3 backend/app.py 
 ```
 
-### Create the Frontent - Shell Session #2
+#### Create the Frontent - Shell Session #2
 
 Verify that you have a recent version of NodeJS and NPM:
 
@@ -167,15 +217,9 @@ npm install # installing the dependencies
 npm run dev -- --host
 ```
 
-## Build your own Docker Image
+### Build your own Docker Image
 
-In `frontend/App.jsx` change
-
-```js
-  const BASEURL = "http://192.168.1.122:5000"
-```
-
-to
+In `frontend/App.jsx` set the variable `BASEURL` to an empty string.
 
 ```js
   const BASEURL = ""
