@@ -1,0 +1,352 @@
+import { Button, Typography, FormControl, FormLabel, RadioGroup, FormControlLabel, Radio, TextField, Box } from "@mui/material";
+import axios from "axios";
+import { useEffect, useState } from "react";
+import "./App.css";
+// import scientistLogo from "./assets/Mad_scientist_transparent_background.svg";
+import Select from "react-select";
+
+function App() {
+  const [data, setData] = useState(null);
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [responseData, setResponseData] = useState(null);
+  const [selectedBucket, setSelectedBucket] = useState(null);
+  const [bucketsData, setBucketsData] = useState(null);
+
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Empty string when running in container
+  const BASEURL = "http://192.168.1.122:5000";
+  // const BASEURL = "";
+
+  const onFileChange = (event) => {
+    console.log("Selected File:", event.target.files[0]);
+    setSelectedFile(event.target.files[0]);
+  };
+
+  const onBucketChange = (event) => {
+    console.log("Selected Bucket:", event.value);
+    setSelectedBucket(event.value);
+  };
+
+  const onFileUpload = async () => {
+    if (selectedFile) {
+      const formData = new FormData();
+      setResponseData({ message: "Uploading..." });
+
+      formData.append("file", selectedFile, selectedFile.name);
+      formData.append("bucket", selectedBucket);
+
+      const formValues = Object.fromEntries(formData);
+      console.log("Form Data:", formValues);
+
+      try {
+        const response = await axios.post(
+          BASEURL + "/api/uploadfile",
+          formData
+        );
+
+        setResponseData(response.data);
+
+        if (response.data.message) {
+          console.log("Success Message:", response.data.message);
+        }
+        if (response.data.error) {
+          console.log("Error Message:", response.data.error);
+        }
+      } catch (error) {
+        console.error(
+          "Error:",
+          error.response ? error.response.error : error.message
+        );
+      }
+    } else {
+      setResponseData({ error: "Choose a file to upload first!" });
+      console.log("No file selected");
+    }
+  };
+
+  const onFileScanSandbox = async () => {
+    if (selectedFile) {
+      const formData = new FormData();
+      formData.append("file", selectedFile, selectedFile.name);
+      setResponseData({ message: "Uploading and waiting for scan result..." });
+
+      try {
+        const response = await axios.post(
+          BASEURL + "/api/scansandbox",
+          formData
+        );
+        setResponseData(response.data);
+        console.log(response.data);
+        const task_id = response.data.task_id;
+
+        if (response.data.message) {
+          console.log("Success Message:", response.data.message);
+        }
+        if (response.data.error) {
+          console.log("Error Message:", response.data.error);
+        }
+
+        const poll = async () => {
+          try {
+            const scan_status = await axios.get(
+              BASEURL + `/api/scansandbox/${task_id}`
+            );
+            console.log("Current status:", scan_status.data.status);
+            setResponseData(scan_status.data);
+            if (
+              scan_status.data.status === "succeeded" ||
+              scan_status.data.status === "failed"
+            ) {
+              console.log(
+                "Retrieve Scan result:",
+                scan_status.data.resourceLocation
+              );
+              const formData = new FormData();
+
+              formData.append(
+                "lastActionDateTime",
+                scan_status.data.response.lastActionDateTime
+              );
+              if (scan_status.data.response.resourceLocation) {
+                formData.append(
+                  "resourceLocation",
+                  scan_status.data.response.resourceLocation
+                );
+              } else {
+                formData.append(
+                  "errorCode",
+                  scan_status.data.response.error.code
+                );
+                formData.append(
+                  "errorMessage",
+                  scan_status.data.response.error.message
+                );
+              }
+              const tags = await axios.post(
+                BASEURL + `/api/resultsandbox`,
+                formData
+              );
+              setResponseData(tags.data);
+              console.log(tags.data);
+            } else if (scan_status.data.status === "running") {
+              setTimeout(poll, 5000);
+            }
+          } catch (error) {
+            console.error("Error during polling:", error);
+          }
+        };
+
+        poll();
+      } catch (error) {
+        console.error(
+          "Error:",
+          error.response ? error.response.error : error.message
+        );
+      }
+    } else {
+      setResponseData({ error: "Choose a file to upload first!" });
+      console.log("No file selected");
+    }
+  };
+
+  const onFileScanFS = async () => {
+    if (selectedFile) {
+      const formData = new FormData();
+      setResponseData({ message: "Uploading your document" });
+
+      formData.append("file", selectedFile, selectedFile.name);
+
+      try {
+        const response = await axios.post(BASEURL + "/api/scanfs", formData);
+        // Parse the response
+        setResponseData(response.data);
+
+        if (response.data.message) {
+          console.log("Success Message:", response.data.message);
+        }
+        if (response.data.error) {
+          console.log("Error Message:", response.data.error);
+        }
+
+        if (response.data.tags) {
+          const tags = response.data.tags;
+          console.log("tags:", tags);
+          if (tags.includes("sandbox")) {
+            console.log("sending to sandbox")
+            onFileScanSandbox();  // Trigger Sandbox Scan
+          }
+        }
+      } catch (error) {
+        console.error(
+          "Error:",
+          error.response ? error.response.error : error.message
+        );
+      }
+    } else {
+      setResponseData({ error: "Choose a file to scan first!" });
+      console.log("No file selected");
+    }
+  };
+
+  const onFileScanCS = async () => {
+    if (selectedFile) {
+      const formData = new FormData();
+      setResponseData({ message: "Uploading..." });
+
+      formData.append("file", selectedFile, selectedFile.name);
+
+      try {
+        const response = await axios.post(BASEURL + "/api/scancs", formData);
+
+        setResponseData(response.data);
+
+        if (response.data.message) {
+          console.log("Success Message:", response.data.message);
+        }
+        if (response.data.error) {
+          console.log("Error Message:", response.data.error);
+        }
+      } catch (error) {
+        console.error(
+          "Error:",
+          error.response ? error.response.error : error.message
+        );
+      }
+    } else {
+      setResponseData({ error: "Choose a file to save first!" });
+      console.log("No file selected");
+    }
+  };
+
+  const listBuckets = async () => {
+    try {
+      const formData = new FormData();
+      const response = await axios.get(BASEURL + "/api/listbuckets", formData);
+
+      setResponseData(response.data);
+      setBucketsData(response.data.buckets);
+      setIsLoading(false);
+
+      if (response.data.message) {
+        console.log("Success Message:", response.data.message);
+      }
+      if (response.data.error) {
+        console.log("Error Message:", response.data.error);
+      }
+    } catch (error) {
+      console.error(
+        "Error:",
+        error.response ? error.response.error : error.message
+      );
+    }
+  };
+
+  useEffect(() => {
+    axios
+      .get(BASEURL + "/api/data")
+      .then((response) => setData(response.data))
+      .catch((error) => console.error(error));
+  }, []);
+
+  useEffect(() => {
+    if (bucketsData === null) {
+      listBuckets();
+    }
+  }, [bucketsData]);
+
+  // const MuiRadioButtonGroup = () => {
+  //   const [selectedValue, setSelectedValue] = useState("option1");
+  
+  const handleChange = (event) => {
+      setSelectedValue(event.target.value);
+    };
+
+  if (isLoading) {
+    return <div>Loading S3 Buckets...</div>;
+  }
+
+  return (
+    <>
+      <div>
+        <a
+          href="https://mawinkler.github.io/playground-one-pages/"
+          target="_blank"
+        >
+        </a>
+      </div>
+      <div>
+        <h2>Personal data</h2>
+      </div>
+      <div>
+        <h3>Form of address</h3>
+        <RadioGroup onChange={handleChange} row >
+          <FormControlLabel value="option1" control={<Radio sx={{ color: "white", "&.Mui-checked": { color: "white" } }} />} label="Mr." />
+          <FormControlLabel value="option2" control={<Radio sx={{ color: "white", "&.Mui-checked": { color: "white" } }} />} label="Mrs." />
+          <FormControlLabel value="option3" control={<Radio sx={{ color: "white", "&.Mui-checked": { color: "white" } }} />} label="Diverse" />
+          <FormControlLabel value="option4" control={<Radio sx={{ color: "white", "&.Mui-checked": { color: "white" } }} />} label="Not stated" />
+        </RadioGroup>
+      </div>
+      <div>
+        {/* <Box
+          component="form"
+          sx={{ '& > :not(style)': { m: 1, width: '25ch' } }}
+          noValidate
+          autoComplete="off"
+        > */}
+          <TextField id="first-name" label="First name" focused variant="filled" sx={{ input: { color: "white" }, '& > :not(style)': { m: 1, width: '50ch', height: '7ch' } }}/>
+        {/* </Box> */}
+      </div>
+      <div>
+        <TextField id="name" label="Name" focused variant="filled" sx={{ input: { color: "white" }, '& > :not(style)': { m: 1, width: '50ch', height: '7ch' } }}/>
+      </div>
+      <div>
+        <TextField id="phone-number" label="Phone number" focused variant="filled" sx={{ input: { color: "white" }, '& > :not(style)': { m: 1, width: '50ch', height: '7ch' } }}/>
+      </div>
+      <div>
+        <h3>Upload documents</h3>
+        Please upload your application documents.
+      </div>
+      <br></br>
+      <div>
+        <Button variant="contained" component="label">
+          Select file
+          <input type="file" hidden onChange={onFileChange} />
+        </Button>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+          }}
+        >
+        </div>
+        {selectedFile && (
+          <Typography variant="body1" style={{ marginTop: 10 }}>
+            Selected File: {selectedFile.name}
+            <br></br>
+            File Size: {selectedFile.size} bytes
+          </Typography>
+        )}
+        <Button
+          variant="contained"
+          color="primary"
+          onClick={onFileScanFS}
+          style={{ marginTop: 20 }}
+        >
+          Upload
+        </Button>
+
+        {responseData && responseData.message && responseData.message != "OK" && <p>{responseData.message}</p>}
+        {responseData && responseData.error && (
+          <p>Error: {responseData.error}</p>
+        )}
+        {responseData && responseData.tags && (
+          <pre>Tags: {JSON.stringify(responseData.tags, null, 2)}</pre>
+        )}
+      </div>
+    </>
+  );
+}
+
+export default App;
